@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sketch Helper</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(to right, #f4f6f9, #e0ecf4);
+      color: #333;
+      padding-top: 100px;
+      margin: 0;
+    }
+    header {
+      position: fixed;
+      top: 0;
+      width: 100%;
+      background: #3498db;
+      color: white;
+      padding: 20px 0;
+      font-size: 24px;
+      font-weight: bold;
+      text-align: center;
+      z-index: 1000;
+    }
+    header .tools {
+      position: absolute;
+      right: 20px;
+      top: 20px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    form {
+      max-width: 600px;
+      background: #fff;
+      margin: 0 auto 40px;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+    input, select {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      font-size: 16px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    input[type="submit"] {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    label { font-weight: 600; margin-top: 10px; }
+    .image-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 30px;
+    }
+    .image-box {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      width: 340px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    canvas {
+      width: 100%;
+      height: auto;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .download-link {
+      display: inline-block;
+      margin-top: 12px;
+      padding: 8px 16px;
+      background-color: #2ecc71;
+      color: white;
+      text-decoration: none;
+      border-radius: 6px;
+    }
+    .toggle-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 24px;
+      margin: 30px auto;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.8);
+    }
+    .modal-content {
+      margin: 5% auto;
+      max-width: 95%;
+      max-height: 90vh;
+      overflow: auto;
+      background: #fff;
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+    }
+    .modal-content img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 8px;
+    }
+    .close {
+      position: absolute;
+      top: 20px;
+      right: 40px;
+      color: white;
+      font-size: 40px;
+      cursor: pointer;
+    }
+    body.dark {
+      background: #121212;
+      color: #eee;
+    }
+    body.dark form,
+    body.dark .image-box {
+      background: #1e1e1e;
+      color: #eee;
+    }
+    #spinner {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(255,255,255,0.7);
+      z-index: 9999;
+    }
+    #spinner .inner {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+    #spinner .loader {
+      border: 6px solid #f3f3f3;
+      border-top: 6px solid #3498db;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  🎨 Sketch Helper
+  <div class="tools">
+    <label><span id="modeIcon">🌙</span>
+      <input type="checkbox" id="darkModeToggle" style="display:none;">
+    </label>
+  </div>
+</header>
+
+<form method="post" enctype="multipart/form-data">
+  <label>Upload Image:</label>
+  <input type="file" name="image" required>
+
+  <label>Grid Columns:</label>
+  <input type="number" name="grid_cols" id="grid_cols" value="21" min="2">
+
+  <label>Grid Rows:</label>
+  <input type="number" name="grid_rows" id="grid_rows" value="29" min="2">
+
+  <input type="submit" value="Upload & Generate">
+</form>
+
+<div id="spinner">
+  <div class="inner">
+    <div class="loader"></div>
+    <p>Processing...</p>
+  </div>
+</div>
+
+{% if original_image %}
+<h2 style="text-align:center;">Uploaded Image</h2>
+<div class="image-container">
+  <div class="image-box">
+    <p><strong>Original</strong></p>
+    <img src="{{ url_for('static', filename='uploads/' ~ original_image) }}" alt="Uploaded" style="width:100%; border-radius:6px;" onclick="openImageModal(this.src)">
+  </div>
+</div>
+{% endif %}
+
+{% if images %}
+<div class="toggle-container">
+  <div class="toggle-option">
+    <input type="checkbox" id="toggleGrid" checked>
+    <label for="toggleGrid">Show Grid</label>
+  </div>
+  <div class="toggle-option">
+    <input type="checkbox" id="toggleNumbers" checked>
+    <label for="toggleNumbers">Show Grid Numbers</label>
+  </div>
+  <div class="toggle-option">
+    <label for="gridColorPicker">Grid Colour :</label>
+    <input type="color" id="gridColorPicker" value="#ff0000">
+  </div>
+</div>
+
+<h2 style="text-align:center;">Sketch Layers</h2>
+<div class="image-container">
+  {% for img in images %}
+  <div class="image-box">
+    <p><strong>{{ img.replace('_', ' ').title() }}</strong></p>
+    <canvas id="canvas_{{ img }}" width="600" height="800" onclick="openModalFromCanvas('canvas_{{ img }}')"></canvas>
+    <a id="download_{{ img }}" class="download-link" href="#">Download</a>
+  </div>
+  {% endfor %}
+</div>
+
+<div id="imgModal" class="modal" onclick="closeModal()">
+  <span class="close" onclick="closeModal()">&times;</span>
+  <div class="modal-content">
+    <canvas id="modalCanvas" style="border-radius:8px; display: block; margin: 0 auto"></canvas>
+  </div>
+</div>
+
+<script>
+  const toggleGrid = document.getElementById("toggleGrid");
+  const toggleNumbers = document.getElementById("toggleNumbers");
+  const gridColorPicker = document.getElementById("gridColorPicker");
+  const images = {{ images | tojson }};
+  const rows = parseInt("{{ rows | default(29)}}");
+  const cols = parseInt("{{ cols | default(21)}}");
+
+  images.forEach((imgBase) => {
+    const canvas = document.getElementById("canvas_" + imgBase);
+    const ctx = canvas.getContext("2d");
+    const image = new Image();
+    image.src = `/static/steps/${imgBase}.jpg`;
+    image.onload = () => {
+      const showGrid = imgBase !== "shaded" && toggleGrid.checked;
+      const showNumbers = imgBase !== "shaded" && toggleNumbers.checked;
+      drawSketchLayer(image, canvas, ctx, gridColorPicker.value, showGrid, showNumbers);
+    };
+
+
+    document.getElementById("download_" + imgBase).addEventListener("click", () => {
+      const dataURL = canvas.toDataURL("image/jpeg");
+      const link = document.getElementById("download_" + imgBase);
+      link.href = dataURL;
+      link.download = imgBase + ".jpg";
+    });
+  });
+
+  function drawSketchLayer(image, canvas, ctx, gridColor, showGrid, showNumbers) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    if (!showGrid) return;
+
+    const cellWidth = canvas.width / cols;
+    const cellHeight = canvas.height / rows;
+    ctx.strokeStyle = gridColor;
+    ctx.lineWidth = 1;
+
+    for (let i = 0; i <= cols; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * cellWidth, 0);
+      ctx.lineTo(i * cellWidth, canvas.height);
+      ctx.stroke();
+    }
+    for (let j = 0; j <= rows; j++) {
+      ctx.beginPath();
+      ctx.moveTo(0, j * cellHeight);
+      ctx.lineTo(canvas.width, j * cellHeight);
+      ctx.stroke();
+    }
+    if (showNumbers) {
+      const fontSize = Math.max(10, canvas.width/cols/4);
+      ctx.font = `${fontSize}px Poppins`;
+      ctx.fillStyle = "#0077ff";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const x = c * cellWidth + 4;
+          const y = r * cellHeight + 12;
+          ctx.fillText(`${r+1},${c+1}`, x, y);
+        }
+      }
+    }
+  }
+
+  gridColorPicker.addEventListener("input", () => redrawAll());
+  toggleGrid.addEventListener("change", () => redrawAll());
+  toggleNumbers.addEventListener("change", () => redrawAll());
+
+  function redrawAll() {
+    const color = gridColorPicker.value;
+    const showGrid = toggleGrid.checked;
+    const showNumbers = toggleNumbers.checked;
+
+    images.forEach((imgBase) => {
+      const canvas = document.getElementById("canvas_" + imgBase);
+      const ctx = canvas.getContext("2d");
+      const img = new Image();
+      img.src = `/static/steps/${imgBase}.jpg`;
+      img.onload = () => {
+        const applyGrid = imgBase !== "shaded" && showGrid;
+        const applyNumbers = imgBase !== "shaded" && showNumbers;
+        drawSketchLayer(img, canvas, ctx, color, applyGrid, applyNumbers);
+      };
+
+    });
+  }
+
+  document.getElementById("darkModeToggle").addEventListener("change", () => {
+    document.body.classList.toggle("dark");
+    document.getElementById("modeIcon").textContent =
+      document.body.classList.contains("dark") ? "☀️" : "🌙";
+  });
+
+  document.querySelector("form").addEventListener("submit", () => {
+    document.getElementById("spinner").style.display = "block";
+  });
+
+  function openImageModal(src) {
+    const modal = document.getElementById("imgModal");
+    const modalCanvas = document.getElementById("modalCanvas");
+    const ctx = modalCanvas.getContext("2d");
+
+    const img = new Image();
+    img.onload = () => {
+      modalCanvas.width = img.width;
+      modalCanvas.height = img.height;
+      ctx.clearRect(0, 0, modalCanvas.width, modalCanvas.height);
+      ctx.drawImage(img, 0, 0, modalCanvas.width, modalCanvas.height);
+      modal.style.display = "block";
+    };
+    img.src = src;
+  }
+
+  function openModalFromCanvas(canvasID) {
+    const originalCanvas = document.getElementById(canvasID);
+    const modal = document.getElementById("imgModal");
+    const modalCanvas = document.getElementById("modalCanvas");
+    const ctx = modalCanvas.getContext("2d");
+
+    modalCanvas.width = originalCanvas.width;
+    modalCanvas.height = originalCanvas.height;
+    ctx.clearRect(0, 0, modalCanvas.width, modalCanvas.height);
+    ctx.drawImage(originalCanvas, 0, 0);
+
+    modal.style.display = "block";
+  }
+
+  function closeModal() {
+    document.getElementById("imgModal").style.display = "none";
+  }
+
+  function updateGridDefaults() {
+    document.getElementById("grid_rows").value = map[size].rows;
+    document.getElementById("grid_cols").value = map[size].cols;
+  }
+
+  window.onload = () => {
+    updateGridDefaults();
+    if (document.getElementById("toggleGrid")) {
+      document.getElementById("toggleGrid").dispatchEvent(new Event("change"));
+    }
+    if (document.getElementById("toggleNumbers")) {
+      document.getElementById("toggleNumbers").dispatchEvent(new Event("change"));
+    }
+  };
+</script>
+{% endif %}
+
+</body>
+</html>
