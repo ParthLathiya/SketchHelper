@@ -5,6 +5,7 @@
   <title>Sketch Helper</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
   <style>
+    /* ... (Keep your existing CSS exactly as it is) ... */
     * { box-sizing: border-box; }
     body {
       font-family: 'Poppins', sans-serif;
@@ -179,13 +180,10 @@
 <form method="post" enctype="multipart/form-data">
   <label>Upload Image:</label>
   <input type="file" name="image" required>
-
   <label>Grid Columns:</label>
   <input type="number" name="grid_cols" id="grid_cols" value="21" min="2">
-
   <label>Grid Rows:</label>
   <input type="number" name="grid_rows" id="grid_rows" value="29" min="2">
-
   <input type="submit" value="Upload & Generate">
 </form>
 
@@ -196,17 +194,15 @@
   </div>
 </div>
 
-{% if original_image %}
+{% if data %}
 <h2 style="text-align:center;">Uploaded Image</h2>
 <div class="image-container">
   <div class="image-box">
     <p><strong>Original</strong></p>
-    <img src="{{ url_for('static', filename='uploads/' ~ original_image) }}" alt="Uploaded" style="width:100%; border-radius:6px;" onclick="openImageModal(this.src)">
+    <img src="data:image/jpeg;base64,{{ data.original }}" alt="Uploaded" style="width:100%; border-radius:6px;" onclick="openImageModal(this.src)">
   </div>
 </div>
-{% endif %}
 
-{% if images %}
 <div class="toggle-container">
   <div class="toggle-option">
     <input type="checkbox" id="toggleGrid" checked>
@@ -224,11 +220,11 @@
 
 <h2 style="text-align:center;">Sketch Layers</h2>
 <div class="image-container">
-  {% for img in images %}
+  {% for key in ['layer1', 'layer2', 'shaded'] %}
   <div class="image-box">
-    <p><strong>{{ img.replace('_', ' ').title() }}</strong></p>
-    <canvas id="canvas_{{ img }}" width="600" height="800" onclick="openModalFromCanvas('canvas_{{ img }}')"></canvas>
-    <a id="download_{{ img }}" class="download-link" href="#">Download</a>
+    <p><strong>{{ key.replace('_', ' ').title() }}</strong></p>
+    <canvas id="canvas_{{ key }}" width="600" height="800" onclick="openModalFromCanvas('canvas_{{ key }}')"></canvas>
+    <a id="download_{{ key }}" class="download-link" href="#">Download</a>
   </div>
   {% endfor %}
 </div>
@@ -244,29 +240,33 @@
   const toggleGrid = document.getElementById("toggleGrid");
   const toggleNumbers = document.getElementById("toggleNumbers");
   const gridColorPicker = document.getElementById("gridColorPicker");
-  const images = {{ images | tojson }};
+  
+  // Data passed as a dictionary from Python
+  const imageData = {{ data | tojson }};
   const rows = parseInt("{{ rows | default(29)}}");
   const cols = parseInt("{{ cols | default(21)}}");
+  const imageKeys = ['layer1', 'layer2', 'shaded'];
 
-  images.forEach((imgBase) => {
-    const canvas = document.getElementById("canvas_" + imgBase);
-    const ctx = canvas.getContext("2d");
-    const image = new Image();
-    image.src = `/static/steps/${imgBase}.jpg`;
-    image.onload = () => {
-      const showGrid = imgBase !== "shaded" && toggleGrid.checked;
-      const showNumbers = imgBase !== "shaded" && toggleNumbers.checked;
-      drawSketchLayer(image, canvas, ctx, gridColorPicker.value, showGrid, showNumbers);
-    };
+  function redrawAll() {
+    const color = gridColorPicker.value;
+    const showGrid = toggleGrid.checked;
+    const showNumbers = toggleNumbers.checked;
 
-
-    document.getElementById("download_" + imgBase).addEventListener("click", () => {
-      const dataURL = canvas.toDataURL("image/jpeg");
-      const link = document.getElementById("download_" + imgBase);
-      link.href = dataURL;
-      link.download = imgBase + ".jpg";
+    imageKeys.forEach((key) => {
+      const canvas = document.getElementById("canvas_" + key);
+      const ctx = canvas.getContext("2d");
+      const img = new Image();
+      
+      // Load from the base64 string instead of a URL
+      img.src = "data:image/jpeg;base64," + imageData[key];
+      
+      img.onload = () => {
+        const applyGrid = key !== "shaded" && showGrid;
+        const applyNumbers = key !== "shaded" && showNumbers;
+        drawSketchLayer(img, canvas, ctx, color, applyGrid, applyNumbers);
+      };
     });
-  });
+  }
 
   function drawSketchLayer(image, canvas, ctx, gridColor, showGrid, showNumbers) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -306,50 +306,41 @@
     }
   }
 
-  gridColorPicker.addEventListener("input", () => redrawAll());
-  toggleGrid.addEventListener("change", () => redrawAll());
-  toggleNumbers.addEventListener("change", () => redrawAll());
+  // Initial Draw
+  window.onload = () => {
+    redrawAll();
+  };
 
-  function redrawAll() {
-    const color = gridColorPicker.value;
-    const showGrid = toggleGrid.checked;
-    const showNumbers = toggleNumbers.checked;
+  // Event Listeners
+  gridColorPicker.addEventListener("input", redrawAll);
+  toggleGrid.addEventListener("change", redrawAll);
+  toggleNumbers.addEventListener("change", redrawAll);
 
-    images.forEach((imgBase) => {
-      const canvas = document.getElementById("canvas_" + imgBase);
-      const ctx = canvas.getContext("2d");
-      const img = new Image();
-      img.src = `/static/steps/${imgBase}.jpg`;
-      img.onload = () => {
-        const applyGrid = imgBase !== "shaded" && showGrid;
-        const applyNumbers = imgBase !== "shaded" && showNumbers;
-        drawSketchLayer(img, canvas, ctx, color, applyGrid, applyNumbers);
-      };
-
+  // Setup Downloads
+  imageKeys.forEach((key) => {
+    document.getElementById("download_" + key).addEventListener("click", function() {
+      const canvas = document.getElementById("canvas_" + key);
+      this.href = canvas.toDataURL("image/jpeg");
+      this.download = key + ".jpg";
     });
-  }
+  });
 
+  // Dark Mode
   document.getElementById("darkModeToggle").addEventListener("change", () => {
     document.body.classList.toggle("dark");
-    document.getElementById("modeIcon").textContent =
-      document.body.classList.contains("dark") ? "☀️" : "🌙";
+    document.getElementById("modeIcon").textContent = document.body.classList.contains("dark") ? "☀️" : "🌙";
   });
 
-  document.querySelector("form").addEventListener("submit", () => {
-    document.getElementById("spinner").style.display = "block";
-  });
-
+  // Modal logic
   function openImageModal(src) {
     const modal = document.getElementById("imgModal");
     const modalCanvas = document.getElementById("modalCanvas");
     const ctx = modalCanvas.getContext("2d");
-
     const img = new Image();
     img.onload = () => {
       modalCanvas.width = img.width;
       modalCanvas.height = img.height;
-      ctx.clearRect(0, 0, modalCanvas.width, modalCanvas.height);
-      ctx.drawImage(img, 0, 0, modalCanvas.width, modalCanvas.height);
+      ctx.drawImage(img, 0, 0);
       modal.style.display = "block";
     };
     img.src = src;
@@ -359,36 +350,22 @@
     const originalCanvas = document.getElementById(canvasID);
     const modal = document.getElementById("imgModal");
     const modalCanvas = document.getElementById("modalCanvas");
-    const ctx = modalCanvas.getContext("2d");
-
     modalCanvas.width = originalCanvas.width;
     modalCanvas.height = originalCanvas.height;
-    ctx.clearRect(0, 0, modalCanvas.width, modalCanvas.height);
-    ctx.drawImage(originalCanvas, 0, 0);
-
+    modalCanvas.getContext("2d").drawImage(originalCanvas, 0, 0);
     modal.style.display = "block";
   }
 
-  function closeModal() {
-    document.getElementById("imgModal").style.display = "none";
-  }
-
-  function updateGridDefaults() {
-    document.getElementById("grid_rows").value = map[size].rows;
-    document.getElementById("grid_cols").value = map[size].cols;
-  }
-
-  window.onload = () => {
-    updateGridDefaults();
-    if (document.getElementById("toggleGrid")) {
-      document.getElementById("toggleGrid").dispatchEvent(new Event("change"));
-    }
-    if (document.getElementById("toggleNumbers")) {
-      document.getElementById("toggleNumbers").dispatchEvent(new Event("change"));
-    }
-  };
+  function closeModal() { document.getElementById("imgModal").style.display = "none"; }
 </script>
 {% endif %}
+
+<script>
+  // Spinner logic for the form
+  document.querySelector("form").addEventListener("submit", () => {
+    document.getElementById("spinner").style.display = "block";
+  });
+</script>
 
 </body>
 </html>
