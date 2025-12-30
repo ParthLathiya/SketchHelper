@@ -39,7 +39,7 @@ def index():
             npimg = np.frombuffer(filestr, np.uint8)
             img = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
 
-            target_size = (2480, 3508)
+            target_size = (1200, 1600)
             padded_img = resize_and_pad(img, target_size)
             gray = cv2.cvtColor(padded_img, cv2.COLOR_BGR2GRAY)
 
@@ -75,3 +75,4 @@ def index():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
