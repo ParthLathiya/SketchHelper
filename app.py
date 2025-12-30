@@ -26,6 +26,7 @@ def resize_and_pad(img, target_size):
     return padded
 
 def get_base64(img):
+    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 70]
     _, buffer = cv2.imencode('.jpg', img)
     return base64.b64encode(buffer).decode('utf-8')
 
@@ -75,4 +76,5 @@ def index():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
 
